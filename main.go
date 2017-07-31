@@ -14,6 +14,11 @@ import (
 	"golang.org/x/tools/go/buildutil"
 )
 
+type CompilationUnit struct {
+	Declarations []*Declaration `json:"declarations"`
+	Comments     []Comment      `json:"comments,omitempty"`
+}
+
 type Declaration struct {
 	Label        string        `json:"label"`
 	Type         string        `json:"type"`
@@ -21,6 +26,12 @@ type Declaration struct {
 	Start        token.Pos     `json:"start"`
 	End          token.Pos     `json:"end"`
 	Children     []Declaration `json:"children,omitempty"`
+}
+
+type Comment struct {
+	Start token.Pos `json:"start"`
+	End   token.Pos `json:"end"`
+	Text  string    `json:"text"`
 }
 
 var (
@@ -59,6 +70,17 @@ func main() {
 	}
 
 	declarations := []Declaration{}
+	comments := []Comment{}
+
+	for _, com := range fileAst.Comments {
+		for _, singleComment := range com.List {
+			comments = append(comments, Comment{
+				singleComment.Pos(),
+				singleComment.End(),
+				singleComment.Text,
+			})
+		}
+	}
 
 	for _, decl := range fileAst.Decls {
 		switch decl := decl.(type) {
@@ -117,16 +139,19 @@ func main() {
 		}
 	}
 
-	pkg := []*Declaration{&Declaration{
-		fileAst.Name.String(),
-		"package",
-		"",
-		fileAst.Pos(),
-		fileAst.End(),
-		declarations,
-	}}
+	cu := &CompilationUnit{
+		Declarations: []*Declaration{&Declaration{
+			fileAst.Name.String(),
+			"package",
+			"",
+			fileAst.Pos(),
+			fileAst.End(),
+			declarations,
+		}},
+		Comments: comments,
+	}
 
-	str, _ := json.Marshal(pkg)
+	str, _ := json.Marshal(cu)
 	fmt.Println(string(str))
 
 }
